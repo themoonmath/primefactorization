@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>소인수분해 팡팡! - 랭킹전</title>
+<style>
+    :root {
+        --primary-color: #FF5722;
+        --bg-color: #212121;
+        --text-color: #ffffff;
+    }
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Jua', 'Malgun Gothic', sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        overflow: hidden;
+        touch-action: manipulation;
+    }
+    #game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* 상단 정보창 */
+    #top-bar {
+        height: 50px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 20px;
+        background-color: rgba(0,0,0,0.5);
+        font-size: 1.2em;
+        font-weight: bold;
+        z-index: 10;
+        flex-shrink: 0;
+    }
+    #score-box span, #level-box span { color: var(--primary-color); }
+    #player-display { font-size: 0.8em; color: #aaa; }
+
+    /* 게임 캔버스 */
+    canvas {
+        flex-grow: 1;
+        background: linear-gradient(to bottom, #37474F, #263238);
+        touch-action: none;
+    }
+
+    /* 하단 컨트롤 패널 */
+    #control-panel {
+        height: auto;
+        min-height: 100px;
+        background-color: #455A64;
+        padding: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 -5px 10px rgba(0,0,0,0.3);
+        z-index: 10;
+        flex-shrink: 0;
+    }
+    .prime-btn {
+        width: 65px;
+        height: 65px;
+        border-radius: 50%;
+        border: none;
+        background-color: #FFC107;
+        color: #3E2723;
+        font-size: 1.6em;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px #FFA000;
+        transition: all 0.1s;
+    }
+    .prime-btn:active {
+        transform: translateY(4px);
+        box-shadow: 0 0 #FFA000;
+        background-color: #FFB300;
+    }
+
+    /* 제작자 푸터 */
+    #footer {
+        background-color: #1a1a1a;
+        color: #777;
+        text-align: center;
+        padding: 5px 0;
+        font-size: 0.8em;
+        flex-shrink: 0;
+    }
+
+    /* 오버레이 화면 공통 */
+    .overlay-screen {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+    
+    .title-text {
+        font-size: 3em;
+        color: #FF5722;
+        margin-bottom: 20px;
+        text-shadow: 2px 2px 0 #fff;
+    }
+    .instruction-box {
+        background-color: rgba(255,255,255,0.1);
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        text-align: left;
+        max-width: 400px;
+        line-height: 1.6;
+        font-size: 1.1em;
+    }
+    .instruction-box h3 { margin-top: 0; color: #FFC107; text-align: center;}
+    
+    /* ID 입력창 스타일 */
+    .input-group {
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .input-group input {
+        padding: 10px 15px;
+        font-size: 1.2em;
+        border-radius: 10px;
+        border: 2px solid #FF5722;
+        background: #eee;
+        font-family: 'Jua', sans-serif;
+        text-align: center;
+        width: 200px;
+    }
+    
+    .action-btn {
+        padding: 15px 50px;
+        font-size: 1.5em;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-family: 'Jua', sans-serif;
+        box-shadow: 0 4px #bf360c;
+        transition: transform 0.1s;
+    }
+    .action-btn:active { transform: scale(0.95); }
+    .action-btn:disabled { background-color: #777; box-shadow: none; transform: none; cursor: not-allowed;}
+
+    .hidden { display: none !important; }
+
+    /* 랭킹 보드 스타일 */
+    #ranking-board {
+        margin-top: 20px;
+        background: rgba(255,255,255,0.1);
+        padding: 15px;
+        border-radius: 10px;
+        width: 80%;
+        max-width: 300px;
+        text-align: center;
+    }
+    #ranking-list {
+        list-style: none;
+        padding: 0;
+        margin: 10px 0;
+    }
+    #ranking-list li {
+        padding: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        display: flex;
+        justify-content: space-between;
+    }
+    #ranking-list li:first-child { color: #FFD700; font-weight: bold; font-size: 1.2em; } /* 1등 금색 */
+    #ranking-list li:nth-child(2) { color: #C0C0C0; } /* 2등 은색 */
+    #ranking-list li:nth-child(3) { color: #CD7F32; } /* 3등 동색 */
+
+    @media (max-height: 700px) {
+        .prime-btn { width: 55px; height: 55px; font-size: 1.3em; }
+        .title-text { font-size: 2.2em; }
+    }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="game-container">
+    <div id="top-bar">
+        <div id="score-box">점수: <span id="score">0</span></div>
+        <div id="player-display">도전자: <span id="current-player-id"></span></div>
+        <div id="level-box">레벨: <span id="level">1</span></div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="control-panel"></div>
+    
+    <div id="footer">
+        제작자 : 연구부장의 수학노트
+    </div>
+</div>
+
+<div id="start-screen" class="overlay-screen">
+    <div class="title-text">소인수분해 팡팡!</div>
+    
+    <div class="input-group">
+        <input type="text" id="player-id-input" placeholder="도전자 ID (필수)" maxlength="8">
+    </div>
+
+    <div class="instruction-box">
+        <h3>[ 게임 방법 ]</h3>
+        1. 위에서 숫자가 내려옵니다.<br>
+        2. 그 숫자를 나눌 수 있는 <b>소수 버튼</b>을 누르세요.<br>
+        3. 숫자가 1이 되면 팡! 터집니다.
+    </div>
+    <button class="action-btn" onclick="startGame()">게임 시작</button>
+</div>
+
+<div id="game-over-screen" class="overlay-screen hidden">
+    <h1 style="color:#FF5252; font-size:3em; margin-bottom:10px;">GAME OVER</h1>
+    <div style="font-size:1.5em; margin-bottom:20px;">
+        최종 점수: <span id="final-score" style="color:#FFC107; font-weight:bold;">0</span>
+    </div>
+    
+    <div id="ranking-board">
+        <h3 style="margin:0; color:#4FC3F7;">🏆 명예의 전당 TOP 3</h3>
+        <ul id="ranking-list">
+            <li>데이터 불러오는 중...</li>
+        </ul>
+    </div>
+
+    <button class="action-btn" onclick="restartGame()" style="margin-top: 20px;">다시 도전</button>
+</div>
+
+<script>
+    // ==========================================
+    // [설정] 구글 앱스 스크립트 배포 URL (적용 완료)
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsP3sjXHIfN73Q2dGOqPzh-0zUqshnq0ixNxqsEW68ni-SewJrTbUmzLJh68GdiZFR/exec"; 
+    // ==========================================
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
+    const controlPanel = document.getElementById('control-panel');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const finalScoreSpan = document.getElementById('final-score');
+    
+    // 추가된 요소
+    const playerIdInput = document.getElementById('player-id-input');
+    const currentPlayerDisplay = document.getElementById('current-player-id');
+    const rankingList = document.getElementById('ranking-list');
+
+    let score = 0;
+    let level = 1;
+    let balls = [];
+    let particles = [];
+    let gameRunning = false;
+    let spawnRate = 2000;
+    let lastSpawnTime = 0;
+    let animationId;
+    let playerId = ""; // 플레이어 ID 저장 변수
+
+    const primes = [2, 3, 5, 7, 11, 13, 17, 19];
+
+    function resizeCanvas() {
+        const topH = document.getElementById('top-bar').offsetHeight;
+        const botH = document.getElementById('control-panel').offsetHeight;
+        const footH = document.getElementById('footer').offsetHeight;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight - topH - botH - footH;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    primes.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'prime-btn';
+        btn.innerText = p;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(p); });
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); handleInput(p); });
+        controlPanel.appendChild(btn);
+    });
+
+    class Ball {
+        constructor(x, y, number, speed) {
+            this.x = x; this.y = y;
+            this.currentNum = number;
+            this.radius = 35;
+            this.speed = speed;
+            this.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+            this.isHit = false;
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.isHit ? "#fff" : this.color;
+            this.isHit = false; 
+            ctx.fill();
+            ctx.closePath();
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 30px 'Jua', sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(this.currentNum, this.x, this.y);
+        }
+        update() {
+            this.y += this.speed;
+            if (this.y + this.radius > canvas.height) gameOver();
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.radius = Math.random() * 5 + 2;
+            this.velocity = { x: (Math.random()-0.5)*8, y: (Math.random()-0.5)*8 };
+            this.alpha = 1;
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.restore();
+        }
+        update() {
+            this.x += this.velocity.x;
+            this.y += this.velocity.y;
+            this.alpha -= 0.02;
+        }
+    }
+
+    function handleInput(prime) {
+        if (!gameRunning || balls.length === 0) return;
+        
+        let target = null;
+        let maxY = -1000;
+        
+        balls.forEach(ball => {
+            if(ball.y > maxY) {
+                maxY = ball.y;
+                target = ball;
+            }
+        });
+
+        if (!target) return;
+
+        if (target.currentNum % prime === 0) {
+            target.currentNum /= prime;
+            target.isHit = true;
+            score += prime * level;
+            scoreEl.innerText = score;
+
+            if (target.currentNum === 1) {
+                createParticles(target.x, target.y, target.color);
+                balls = balls.filter(b => b !== target);
+                score += 50 * level;
+                checkLevelUp();
+            }
+        }
+    }
+
+    function createParticles(x, y, color) {
+        for(let i=0; i<15; i++) particles.push(new Particle(x, y, color));
+    }
+
+    function checkLevelUp() {
+        if (score >= level * 1000) {
+            level++;
+            levelEl.innerText = level;
+            spawnRate = Math.max(800, spawnRate - 150);
+        }
+    }
+
+    function spawnBall() {
+        const r = 35;
+        const x = Math.random() * (canvas.width - r*2) + r;
+        const y = -r;
+        let maxNum = 20 + level * 10;
+        let speed = 1.2 + level * 0.2;
+        
+        let num = 1;
+        const limitIdx = Math.min(primes.length-1, Math.floor(level/2)+2);
+        
+        while(num < 4 || num > maxNum) {
+            num = 1;
+            let cnt = Math.floor(Math.random()*3)+2;
+            for(let i=0; i<cnt; i++) {
+                let p = primes[Math.floor(Math.random()*limitIdx)];
+                if(num*p <= maxNum*1.2) num *= p;
+            }
+        }
+        balls.push(new Ball(x, y, num, speed));
+    }
+
+    function gameOver() {
+        gameRunning = false;
+        cancelAnimationFrame(animationId);
+        finalScoreSpan.innerText = score;
+        gameOverScreen.classList.remove('hidden');
+        
+        // 게임 종료 시 점수 저장 및 랭킹 호출
+        saveScoreAndLoadRank();
+    }
+
+    // === [ 서버 통신 로직 ] ===
+    function saveScoreAndLoadRank() {
+        if(SCRIPT_URL.includes("여기에")) {
+            rankingList.innerHTML = "<li style='color:red;'>스크립트 URL 오류</li>";
+            return;
+        }
+
+        rankingList.innerHTML = "<li>점수 저장 중...</li>";
+
+        // 1. 점수 저장 요청
+        const saveUrl = `${SCRIPT_URL}?action=save&id=${encodeURIComponent(playerId)}&score=${score}`;
+        
+        fetch(saveUrl)
+            .then(response => response.json())
+            .then(data => {
+                // 2. 저장 성공 후 랭킹 조회 요청
+                rankingList.innerHTML = "<li>랭킹 불러오는 중...</li>";
+                return fetch(`${SCRIPT_URL}?action=rank`);
+            })
+            .then(response => response.json())
+            .then(rankData => {
+                // 3. 랭킹 표시
+                displayRanking(rankData);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                rankingList.innerHTML = "<li>서버 통신 오류</li>";
+            });
+    }
+
+    function displayRanking(rankData) {
+        rankingList.innerHTML = "";
+        if (rankData.length === 0) {
+            rankingList.innerHTML = "<li>등록된 랭킹이 없습니다.</li>";
+            return;
+        }
+
+        rankData.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${index + 1}위. ${item.id}</span> <span>${item.score}점</span>`;
+            rankingList.appendChild(li);
+        });
+    }
+
+    function startGame() {
+        const idVal = playerIdInput.value.trim();
+        if(!idVal) {
+            alert("도전자 ID를 입력해주세요!");
+            playerIdInput.focus();
+            return;
+        }
+        playerId = idVal;
+        currentPlayerDisplay.innerText = playerId;
+
+        startScreen.classList.add('hidden');
+        resizeCanvas();
+        initGame();
+    }
+
+    function restartGame() {
+        gameOverScreen.classList.add('hidden');
+        initGame();
+    }
+
+    function initGame() {
+        score = 0; level = 1;
+        spawnRate = 2000;
+        balls = []; particles = [];
+        scoreEl.innerText = 0;
+        levelEl.innerText = 1;
+        lastSpawnTime = performance.now();
+        gameRunning = true;
+        animate();
+    }
+
+    function animate(time) {
+        if (!gameRunning) return;
+        animationId = requestAnimationFrame(animate);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (time - lastSpawnTime > spawnRate) {
+            spawnBall();
+            lastSpawnTime = time;
+        }
+
+        for (let i = balls.length-1; i>=0; i--) {
+            balls[i].update();
+            balls[i].draw();
+        }
+
+        particles.forEach((p, i) => {
+            if(p.alpha <= 0) particles.splice(i, 1);
+            else { p.update(); p.draw(); }
+        });
+    }
+
+    window.onload = resizeCanvas;
+
+</script>
+</body>
+</html>
